@@ -149,7 +149,7 @@ Security Solution by Umer Malik
                 <li>In Notepad, go to <strong>File > Save As</strong>.</li>
                 <li>Navigate to <code>C:\Scripts</code>.</li>
                 <li>Change "Save as type" to <strong>All Files (*.*)</strong>.</li>
-                <li>Type the filename exactly as specified (e.g., <code>M365_Mailbox_Audit.ps1</code> or <code>IR_Cleanup_Tool.cmd</code>).</li>
+                <li>Type the filename exactly as specified (e.g., <code>M365_Mailbox_Audit.ps1</code>).</li>
             </ul>
         </li>
         <li><strong>Direct Download:</strong> Alternatively, click the <strong>"Download Script"</strong> button to save the file directly with the correct extension.</li>
@@ -287,7 +287,7 @@ Write-Host "Domain Scan Complete."
 <pre id="cmd6">C:\Scripts\IR_Cleanup_Tool.cmd</pre>
 <button onclick="copyToClipboard('cmd6')">Copy Command</button>
 
-<h3>Step 2: Save Script</h3>
+<h3>Step 2: Save Script As: C:\Scripts\IR_Cleanup_Tool.cmd</h3>
 <pre id="script5">
 :: IR_Cleanup_Tool.cmd
 :: Created by Umer Malik
@@ -295,9 +295,11 @@ Write-Host "Domain Scan Complete."
 title IR Cleanup Tool
 setlocal
 
+:: Ensure administrator privileges
 echo Requesting Administrator Authorization...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process PowerShell -ArgumentList '-NoExit -NoProfile -ExecutionPolicy Bypass -File ""%~f0""' -Verb RunAs" && exit /b
 
+:: ---------- PHASE 1: STOP MALWARE PROCESSES ----------
 echo --- Stopping malware processes ---
 powershell -Command ^
 $MaliciousProcs = @("wscript", "cscript", "mshta", "regsvr32"); ^
@@ -308,14 +310,53 @@ foreach ($proc in $MaliciousProcs) { ^
     } ^
 }
 
+:: ---------- PHASE 2: CLEAN TEMP & CACHE ----------
 echo --- Purging temp files and Outlook cache ---
 powershell -Command ^
 $TempPaths = @("$env:TEMP\*","$env:LOCALAPPDATA\Temp\*","$env:APPDATA\Microsoft\Templates\*.one","$env:USERPROFILE\Downloads\*.one","$env:LOCALAPPDATA\Microsoft\Outlook\RoamCache\*"); ^
 foreach ($path in $TempPaths) { ^
     Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue ^
 }
+echo [+] Temp folders and Outlook cache cleared.
+
+:: ---------- PHASE 3: HUNT RECENT ONENOTE PAYLOADS ----------
+echo --- Hunting recent OneNote payloads ---
+powershell -Command ^
+$Drives = Get-PSDrive -PSProvider FileSystem; ^
+foreach ($Drive in $Drives) { ^
+    Get-ChildItem -Path "$($Drive.Root)*" -Include *.one -Recurse -ErrorAction SilentlyContinue | ^
+    Where-Object { $_.CreationTime -gt (Get-Date).AddDays(-14) } | ^
+    ForEach-Object { ^
+        Write-Host "[!] Found Suspicious OneNote: $($_.FullName)" -ForegroundColor Red; ^
+        Rename-Item -Path $_.FullName -NewName "$($_.Name).infected_bak" -ErrorAction SilentlyContinue ^
+    } ^
+}
+
+:: ---------- PHASE 4: REGISTRY AUDIT ----------
+echo --- Registry persistence audit ---
+powershell -Command ^
+$RegPaths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run","HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"); ^
+foreach ($path in $RegPaths) { ^
+    Get-ItemProperty -Path $path | Select-Object -Property * -Exclude PSPath, PSParentPath, PSChildName, PSDrive, PSProvider | ^
+    ForEach-Object { ^
+        $props = $_.psobject.properties; ^
+        foreach ($prop in $props) { ^
+            if ($prop.Value -match "AppData" -or $prop.Value -match "Temp") { ^
+                Write-Host "[!] WARNING: Suspicious Registry Key Found in $path" -ForegroundColor Yellow; ^
+                Write-Host "    $($prop.Name) -> $($prop.Value)" -ForegroundColor Yellow; ^
+            } ^
+        } ^
+    } ^
+}
+
+:: Flush DNS cache
+ipconfig /flushdns
+
+:: Optional: run Defender scan
+powershell -Command "Start-MpScan -ScanType QuickScan"
 
 echo --- CLEANUP COMPLETE ---
+echo Please review warnings above. Press any key to exit.
 pause
 </pre>
 <button onclick="copyToClipboard('script5')">Copy Full Cleanup Script</button>
