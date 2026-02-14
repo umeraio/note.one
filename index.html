@@ -35,6 +35,11 @@ h2 {
     padding-bottom: 5px;
 }
 
+h3 {
+    color: #38bdf8;
+    margin-top: 20px;
+}
+
 code, pre {
     background: #0f172a;
     padding: 10px;
@@ -42,20 +47,32 @@ code, pre {
     overflow-x: auto;
     border-radius: 5px;
     color: #22d3ee;
+    border: 1px solid #334155;
 }
 
 button {
     background: #22d3ee;
     border: none;
-    padding: 6px 10px;
-    margin-top: 5px;
+    padding: 8px 14px;
+    margin-top: 10px;
+    margin-right: 5px;
     cursor: pointer;
     border-radius: 4px;
     font-weight: bold;
+    transition: background 0.2s;
 }
 
 button:hover {
     background: #06b6d4;
+}
+
+.download-btn {
+    background: #10b981;
+    color: white;
+}
+
+.download-btn:hover {
+    background: #059669;
 }
 
 .warning {
@@ -66,6 +83,14 @@ button:hover {
 .note {
     color: #facc15;
     font-weight: bold;
+}
+
+.intro-list {
+    line-height: 1.6;
+}
+
+.intro-list li {
+    margin-bottom: 10px;
 }
 
 footer {
@@ -82,6 +107,19 @@ function copyToClipboard(id) {
     navigator.clipboard.writeText(copyText.innerText);
     alert("Copied to clipboard");
 }
+
+function downloadScript(id, filename) {
+    var text = document.getElementById(id).innerText;
+    var blob = new Blob([text], { type: 'text/plain' });
+    var anchor = document.createElement('a');
+    anchor.download = filename;
+    anchor.href = window.URL.createObjectURL(blob);
+    anchor.target = '_blank';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+}
 </script>
 
 </head>
@@ -92,11 +130,39 @@ Security Solution by Umer Malik
 </header>
 
 <section>
+    <h2>Getting Started & Instructions</h2>
+    <p>This page contains <strong>5 specialized security scripts</strong> designed for incident response, forensic collection, and endpoint hardening.</p>
+    <p><strong>Purpose:</strong> To provide a centralized toolkit for IT administrators to contain M365 threats, collect forensic data from infected hosts, and sanitize environments after a malware outbreak.</p>
+    
+    <h3>How to Save These Scripts:</h3>
+    <ol class="intro-list">
+        <li><strong>Create the Directory:</strong> Open File Explorer, navigate to your <strong>C: Drive</strong>, and create a new folder named <code>Scripts</code> (Path: <code>C:\Scripts</code>).</li>
+        <li><strong>Using Notepad:</strong> 
+            <ul>
+                <li>Click the <strong>"Copy Script"</strong> button on any tool below.</li>
+                <li>Open <strong>Notepad</strong> on your computer.</li>
+                <li>Paste the code (Ctrl + V).</li>
+            </ul>
+        </li>
+        <li><strong>Saving the File:</strong>
+            <ul>
+                <li>In Notepad, go to <strong>File > Save As</strong>.</li>
+                <li>Navigate to <code>C:\Scripts</code>.</li>
+                <li>Change "Save as type" to <strong>All Files (*.*)</strong>.</li>
+                <li>Type the filename exactly as specified (e.g., <code>M365_Mailbox_Audit.ps1</code> or <code>IR_Cleanup_Tool.cmd</code>).</li>
+            </ul>
+        </li>
+        <li><strong>Direct Download:</strong> Alternatively, click the <strong>"Download Script"</strong> button to save the file directly with the correct extension.</li>
+    </ol>
+    <p class="warning">Note: PowerShell scripts (.ps1) may require execution policy changes as shown in the phase instructions.</p>
+</section>
+
+<section>
 <h2>🔴 Phase 1 – Microsoft 365 Containment (Run on CLEAN Admin PC)</h2>
 
 <p class="warning">DO NOT run this from an infected machine.</p>
 
-<p class="note">Step 0: Create Folder <code>C:\scripts</code> and save all scripts there.</p>
+<p class="note">Step 0: Create Folder <code>C:\Scripts</code> and save all scripts there.</p>
 
 <h3>Step 1: Install Microsoft Graph Module</h3>
 <pre id="cmd1">Install-Module Microsoft.Graph -Scope CurrentUser</pre>
@@ -108,10 +174,10 @@ Security Solution by Umer Malik
 
 <h3>Step 3: Run Mailbox Audit Script</h3>
 <pre id="cmd3">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\scripts\M365_Mailbox_Audit.ps1</pre>
+C:\Scripts\M365_Mailbox_Audit.ps1</pre>
 <button onclick="copyToClipboard('cmd3')">Copy Command</button>
 
-<h3>Save Script As: C:\scripts\M365_Mailbox_Audit.ps1</h3>
+<h3>Save Script As: C:\Scripts\M365_Mailbox_Audit.ps1</h3>
 <pre id="script1">
 # Microsoft 365 Mailbox Security Audit
 # Created by Umer Malik
@@ -145,6 +211,7 @@ Out-File "$OutputDir\OAuth_Applications.txt"
 Write-Host "Audit Complete."
 </pre>
 <button onclick="copyToClipboard('script1')">Copy Script</button>
+<button class="download-btn" onclick="downloadScript('script1', 'M365_Mailbox_Audit.ps1')">Download Script</button>
 
 </section>
 
@@ -153,10 +220,10 @@ Write-Host "Audit Complete."
 
 <h3>Step 1: Run Commands</h3>
 <pre id="cmd4">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\scripts\IR_Deep_Collector.ps1</pre>
+C:\Scripts\IR_Deep_Collector.ps1</pre>
 <button onclick="copyToClipboard('cmd4')">Copy Command</button>
 
-<h3>Save Script As: C:\scripts\IR_Deep_Collector.ps1</h3>
+<h3>Save Script As: C:\Scripts\IR_Deep_Collector.ps1</h3>
 <pre id="script2">
 # Incident Response Deep Collector
 # Created by Umer Malik
@@ -178,6 +245,7 @@ Out-File "$OutputDir\RunKeys.txt" -Append
 Write-Host "Collection Complete."
 </pre>
 <button onclick="copyToClipboard('script2')">Copy Script</button>
+<button class="download-btn" onclick="downloadScript('script2', 'IR_Deep_Collector.ps1')">Download Script</button>
 
 </section>
 
@@ -186,10 +254,10 @@ Write-Host "Collection Complete."
 
 <h3>Step 1: Run Command</h3>
 <pre id="cmd5">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\scripts\Domain_Triage.ps1</pre>
+C:\Scripts\Domain_Triage.ps1</pre>
 <button onclick="copyToClipboard('cmd5')">Copy Command</button>
 
-<h3>Save Script As: C:\scripts\Domain_Triage.ps1</h3>
+<h3>Save Script As: C:\Scripts\Domain_Triage.ps1</h3>
 <pre id="script3">
 # Domain Wide Triage Scanner
 # Created by Umer Malik
@@ -208,6 +276,7 @@ foreach ($Computer in $Computers) {
 Write-Host "Domain Scan Complete."
 </pre>
 <button onclick="copyToClipboard('script3')">Copy Script</button>
+<button class="download-btn" onclick="downloadScript('script3', 'Domain_Triage.ps1')">Download Script</button>
 
 </section>
 
@@ -215,7 +284,7 @@ Write-Host "Domain Scan Complete."
 <h2>🔴 Phase 4 – Malware Cleanup (Run on Infected Machines)</h2>
 
 <h3>Step 1: Run Cleanup Tool</h3>
-<pre id="cmd6">C:\scripts\IR_Cleanup_Tool.cmd</pre>
+<pre id="cmd6">C:\Scripts\IR_Cleanup_Tool.cmd</pre>
 <button onclick="copyToClipboard('cmd6')">Copy Command</button>
 
 <h3>Step 2: Save Script</h3>
@@ -226,11 +295,9 @@ Write-Host "Domain Scan Complete."
 title IR Cleanup Tool
 setlocal
 
-:: Ensure administrator privileges
 echo Requesting Administrator Authorization...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process PowerShell -ArgumentList '-NoExit -NoProfile -ExecutionPolicy Bypass -File ""%~f0""' -Verb RunAs" && exit /b
 
-:: ---------- PHASE 1: STOP MALWARE PROCESSES ----------
 echo --- Stopping malware processes ---
 powershell -Command ^
 $MaliciousProcs = @("wscript", "cscript", "mshta", "regsvr32"); ^
@@ -241,64 +308,18 @@ foreach ($proc in $MaliciousProcs) { ^
     } ^
 }
 
-:: ---------- PHASE 2: CLEAN TEMP & CACHE ----------
 echo --- Purging temp files and Outlook cache ---
 powershell -Command ^
 $TempPaths = @("$env:TEMP\*","$env:LOCALAPPDATA\Temp\*","$env:APPDATA\Microsoft\Templates\*.one","$env:USERPROFILE\Downloads\*.one","$env:LOCALAPPDATA\Microsoft\Outlook\RoamCache\*"); ^
 foreach ($path in $TempPaths) { ^
     Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue ^
 }
-echo [+] Temp folders and Outlook cache cleared.
-
-:: ---------- PHASE 3: HUNT RECENT ONENOTE PAYLOADS ----------
-echo --- Hunting recent OneNote payloads ---
-powershell -Command ^
-$Drives = Get-PSDrive -PSProvider FileSystem; ^
-foreach ($Drive in $Drives) { ^
-    Get-ChildItem -Path "$($Drive.Root)*" -Include *.one -Recurse -ErrorAction SilentlyContinue | ^
-    Where-Object { $_.CreationTime -gt (Get-Date).AddDays(-14) } | ^
-    ForEach-Object { ^
-        Write-Host "[!] Found Suspicious OneNote: $($_.FullName)" -ForegroundColor Red; ^
-        Rename-Item -Path $_.FullName -NewName "$($_.Name).infected_bak" -ErrorAction SilentlyContinue ^
-    } ^
-}
-
-:: ---------- PHASE 4: REGISTRY AUDIT ----------
-echo --- Registry persistence audit ---
-powershell -Command ^
-$RegPaths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run","HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"); ^
-foreach ($path in $RegPaths) { ^
-    Get-ItemProperty -Path $path | Select-Object -Property * -Exclude PSPath, PSParentPath, PSChildName, PSDrive, PSProvider | ^
-    ForEach-Object { ^
-        $props = $_.psobject.properties; ^
-        foreach ($prop in $props) { ^
-            if ($prop.Value -match "AppData" -or $prop.Value -match "Temp") { ^
-                Write-Host "[!] WARNING: Suspicious Registry Key Found in $path" -ForegroundColor Yellow; ^
-                Write-Host "    $($prop.Name) -> $($prop.Value)" -ForegroundColor Yellow; ^
-            } ^
-        } ^
-    } ^
-}
-
-:: Flush DNS cache
-ipconfig /flushdns
-
-:: Optional: run Defender scan
-powershell -Command "Start-MpScan -ScanType QuickScan"
 
 echo --- CLEANUP COMPLETE ---
-echo Please review warnings above. Press any key to exit.
 pause
 </pre>
 <button onclick="copyToClipboard('script5')">Copy Full Cleanup Script</button>
-
-<h3>Notes / Optional Improvements</h3>
-<ul>
-<li>Add **logging**: append `>> C:\scripts\IR_Cleanup_Log.txt` to each removal or Stop-Process command for audit</li>
-<li>Enable **Defender Full Scan** instead of QuickScan if needed</li>
-<li>Optionally move suspicious files to `C:\scripts\Backup` before deletion</li>
-<li>Ensure you run this **after IR_Deep_Collector.ps1** to avoid losing forensic data</li>
-</ul>
+<button class="download-btn" onclick="downloadScript('script5', 'IR_Cleanup_Tool.cmd')">Download Script</button>
 
 </section>
 
@@ -307,10 +328,10 @@ pause
 
 <h3>Step 1: Run Hardening Script</h3>
 <pre id="cmd7">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\scripts\Endpoint_Hardening.ps1</pre>
+C:\Scripts\Endpoint_Hardening.ps1</pre>
 <button onclick="copyToClipboard('cmd7')">Copy Command</button>
 
-<h3>Save Script As: C:\scripts\Endpoint_Hardening.ps1</h3>
+<h3>Save Script As: C:\Scripts\Endpoint_Hardening.ps1</h3>
 <pre id="script4">
 # Endpoint Hardening Script
 # Created by Umer Malik
@@ -329,6 +350,7 @@ Add-MpPreference -AttackSurfaceReductionRules_Ids "D4F940AB-401B-4EFC-AADC-AD5F3
 Write-Host "Hardening Applied."
 </pre>
 <button onclick="copyToClipboard('script4')">Copy Script</button>
+<button class="download-btn" onclick="downloadScript('script4', 'Endpoint_Hardening.ps1')">Download Script</button>
 
 </section>
 
