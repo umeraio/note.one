@@ -89,10 +89,6 @@ button:hover {
     line-height: 1.6;
 }
 
-.intro-list li {
-    margin-bottom: 10px;
-}
-
 footer {
     text-align: center;
     padding: 20px;
@@ -132,50 +128,34 @@ Security Solution by Umer Malik
 <section>
     <h2>Getting Started & Instructions</h2>
     <p>This page contains <strong>5 specialized security scripts</strong> designed for incident response, forensic collection, and endpoint hardening.</p>
-    <p><strong>Purpose:</strong> To provide a centralized toolkit for IT administrators to contain M365 threats, collect forensic data from infected hosts, and sanitize environments after a malware outbreak.</p>
+    <p><strong>Purpose:</strong> To provide a centralized toolkit for IT administrators to contain M365 threats, collect forensic data, and sanitize environments.</p>
     
     <h3>How to Save These Scripts:</h3>
     <ol class="intro-list">
-        <li><strong>Create the Directory:</strong> Open File Explorer, navigate to your <strong>C: Drive</strong>, and create a new folder named <code>Scripts</code> (Path: <code>C:\Scripts</code>).</li>
+        <li><strong>Create Directory:</strong> Navigate to your <strong>C: Drive</strong> and create a folder named <strong>Scripts</strong> (Path: <code>C:\Scripts</code>).</li>
         <li><strong>Using Notepad:</strong> 
             <ul>
-                <li>Click the <strong>"Copy Script"</strong> button on any tool below.</li>
-                <li>Open <strong>Notepad</strong> on your computer.</li>
-                <li>Paste the code (Ctrl + V).</li>
+                <li>Click <strong>"Copy Script"</strong> on any section below.</li>
+                <li>Paste (Ctrl+V) into <strong>Notepad</strong>.</li>
             </ul>
         </li>
-        <li><strong>Saving the File:</strong>
+        <li><strong>Saving:</strong>
             <ul>
                 <li>In Notepad, go to <strong>File > Save As</strong>.</li>
-                <li>Navigate to <code>C:\Scripts</code>.</li>
-                <li>Change "Save as type" to <strong>All Files (*.*)</strong>.</li>
-                <li>Type the filename exactly as specified (e.g., <code>M365_Mailbox_Audit.ps1</code>).</li>
+                <li>Set "Save as type" to <strong>All Files (*.*)</strong>.</li>
+                <li>Save to <code>C:\Scripts</code> with the filename provided in the header.</li>
             </ul>
         </li>
-        <li><strong>Direct Download:</strong> Alternatively, click the <strong>"Download Script"</strong> button to save the file directly with the correct extension.</li>
     </ol>
-    <p class="warning">Note: PowerShell scripts (.ps1) may require execution policy changes as shown in the phase instructions.</p>
 </section>
 
 <section>
-<h2>🔴 Phase 1 – Microsoft 365 Containment (Run on CLEAN Admin PC)</h2>
-
-<p class="warning">DO NOT run this from an infected machine.</p>
-
-<p class="note">Step 0: Create Folder <code>C:\Scripts</code> and save all scripts there.</p>
-
-<h3>Step 1: Install Microsoft Graph Module</h3>
-<pre id="cmd1">Install-Module Microsoft.Graph -Scope CurrentUser</pre>
-<button onclick="copyToClipboard('cmd1')">Copy Command</button>
-
-<h3>Step 2: Connect to Microsoft 365</h3>
-<pre id="cmd2">Connect-MgGraph -Scopes "User.Read.All","Mail.Read","MailboxSettings.Read","AuditLog.Read.All","Directory.Read.All"</pre>
-<button onclick="copyToClipboard('cmd2')">Copy Command</button>
-
-<h3>Step 3: Run Mailbox Audit Script</h3>
-<pre id="cmd3">Set-ExecutionPolicy RemoteSigned -Scope Process
+<h2>🔴 Phase 1 – Microsoft 365 Containment</h2>
+<p class="warning">Run on CLEAN Admin PC only.</p>
+<h3>Step 1: Run Command</h3>
+<pre id="cmd1">Set-ExecutionPolicy RemoteSigned -Scope Process
 C:\Scripts\M365_Mailbox_Audit.ps1</pre>
-<button onclick="copyToClipboard('cmd3')">Copy Command</button>
+<button onclick="copyToClipboard('cmd1')">Copy Command</button>
 
 <h3>Save Script As: C:\Scripts\M365_Mailbox_Audit.ps1</h3>
 <pre id="script1">
@@ -212,17 +192,10 @@ Write-Host "Audit Complete."
 </pre>
 <button onclick="copyToClipboard('script1')">Copy Script</button>
 <button class="download-btn" onclick="downloadScript('script1', 'M365_Mailbox_Audit.ps1')">Download Script</button>
-
 </section>
 
 <section>
-<h2>🟠 Phase 2 – Forensic Collection on Infected Machines</h2>
-
-<h3>Step 1: Run Commands</h3>
-<pre id="cmd4">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\Scripts\IR_Deep_Collector.ps1</pre>
-<button onclick="copyToClipboard('cmd4')">Copy Command</button>
-
+<h2>🟠 Phase 2 – Forensic Collection</h2>
 <h3>Save Script As: C:\Scripts\IR_Deep_Collector.ps1</h3>
 <pre id="script2">
 # Incident Response Deep Collector
@@ -246,17 +219,10 @@ Write-Host "Collection Complete."
 </pre>
 <button onclick="copyToClipboard('script2')">Copy Script</button>
 <button class="download-btn" onclick="downloadScript('script2', 'IR_Deep_Collector.ps1')">Download Script</button>
-
 </section>
 
 <section>
-<h2>🟡 Phase 3 – Domain-Wide Scan (Run on Domain Controller)</h2>
-
-<h3>Step 1: Run Command</h3>
-<pre id="cmd5">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\Scripts\Domain_Triage.ps1</pre>
-<button onclick="copyToClipboard('cmd5')">Copy Command</button>
-
+<h2>🟡 Phase 3 – Domain-Wide Scan</h2>
 <h3>Save Script As: C:\Scripts\Domain_Triage.ps1</h3>
 <pre id="script3">
 # Domain Wide Triage Scanner
@@ -277,19 +243,17 @@ Write-Host "Domain Scan Complete."
 </pre>
 <button onclick="copyToClipboard('script3')">Copy Script</button>
 <button class="download-btn" onclick="downloadScript('script3', 'Domain_Triage.ps1')">Download Script</button>
-
 </section>
 
 <section>
-<h2>🔴 Phase 4 – Malware Cleanup (Run on Infected Machines)</h2>
+<h2>🔴 Phase 4 – Malware Cleanup (Infected Machines)</h2>
 
 <h3>Step 1: Run Cleanup Tool</h3>
 <pre id="cmd6">C:\Scripts\IR_Cleanup_Tool.cmd</pre>
 <button onclick="copyToClipboard('cmd6')">Copy Command</button>
 
-<h3>Step 2: Save Script As: C:\Scripts\IR_Cleanup_Tool.cmd</h3>
-<pre id="script5">
-:: IR_Cleanup_Tool.cmd
+<h3>Save Script As: C:\Scripts\IR_Cleanup_Tool.cmd</h3>
+<pre id="script5">:: IR_Cleanup_Tool.cmd
 :: Created by Umer Malik
 @echo off
 title IR Cleanup Tool
@@ -357,21 +321,13 @@ powershell -Command "Start-MpScan -ScanType QuickScan"
 
 echo --- CLEANUP COMPLETE ---
 echo Please review warnings above. Press any key to exit.
-pause
-</pre>
+pause</pre>
 <button onclick="copyToClipboard('script5')">Copy Full Cleanup Script</button>
 <button class="download-btn" onclick="downloadScript('script5', 'IR_Cleanup_Tool.cmd')">Download Script</button>
-
 </section>
 
 <section>
-<h2>🔵 Phase 5 – Endpoint Hardening (Run AFTER Cleanup)</h2>
-
-<h3>Step 1: Run Hardening Script</h3>
-<pre id="cmd7">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\Scripts\Endpoint_Hardening.ps1</pre>
-<button onclick="copyToClipboard('cmd7')">Copy Command</button>
-
+<h2>🔵 Phase 5 – Endpoint Hardening</h2>
 <h3>Save Script As: C:\Scripts\Endpoint_Hardening.ps1</h3>
 <pre id="script4">
 # Endpoint Hardening Script
@@ -392,7 +348,6 @@ Write-Host "Hardening Applied."
 </pre>
 <button onclick="copyToClipboard('script4')">Copy Script</button>
 <button class="download-btn" onclick="downloadScript('script4', 'Endpoint_Hardening.ps1')">Download Script</button>
-
 </section>
 
 <footer>
