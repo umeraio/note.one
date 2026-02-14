@@ -169,48 +169,212 @@ if (!(Test-Path $Path)) {
 </section>
 
 <section>
-<h2>🔴 Phase 1 – Microsoft 365 Containment</h2>
+<h2>🔴 Phase 1 – Enterprise M365 Mailbox Security Audit</h2>
 <p class="warning">Run on CLEAN Admin PC only.</p>
 
-<h3>Step 1: Install Microsoft Graph Module</h3>
-<pre id="cmd-install">Install-Module Microsoft.Graph -Scope CurrentUser</pre>
+<h3>Requirements:</h3>
+<ul class="intro-list">
+    <li><strong>Microsoft Graph PowerShell Module</strong></li>
+    <li><strong>Exchange Online Management Module</strong></li>
+    <li><strong>Permissions:</strong> Global Reader / Security Reader permissions are required.</li>
+</ul>
+
+<h3>Step 1: Install Required Modules</h3>
+<pre id="cmd-install">Install-Module Microsoft.Graph -Scope CurrentUser -AllowClobber
+Install-Module ExchangeOnlineManagement -Scope CurrentUser -AllowClobber</pre>
 <button onclick="copyToClipboard('cmd-install')">Copy Command</button>
 
-<h3>Step 2: Connect to Microsoft 365</h3>
-<pre id="cmd-connect">Connect-MgGraph -Scopes "User.Read.All","Mail.Read","MailboxSettings.Read","AuditLog.Read.All","Directory.Read.All"</pre>
-<button onclick="copyToClipboard('cmd-connect')">Copy Command</button>
-
-<h3>Step 3: Run Mailbox Audit Script</h3>
+<h3>Step 2: Connect and Run Mailbox Audit Script</h3>
 <pre id="cmd1">Set-ExecutionPolicy RemoteSigned -Scope Process
 C:\Scripts\M365_Mailbox_Audit.ps1</pre>
 <button onclick="copyToClipboard('cmd1')">Copy Command</button>
 
 <h3>Save Script As: C:\Scripts\M365_Mailbox_Audit.ps1</h3>
 <pre id="script1">
-# Microsoft 365 Mailbox Security Audit
-# Created by Umer Malik
+&lt;#
+Microsoft 365 Enterprise Mailbox Security Audit
+Author: Umer Malik (Enterprise Version)
+#&gt;
+
+# =========================
+# CONFIGURATION
+# =========================
+
+$TeamsWebhookUrl = "https://YOUR-TEAMS-WEBHOOK-URL"
+$SendEmailAlert = $false
+$AlertEmailTo = "security@yourdomain.com"
+$AlertEmailFrom = "audit@yourdomain.com"
+$SMTPServer = "smtp.yourdomain.com"
+
+# =========================
+# INITIALIZATION
+# =========================
 
 $TimeStamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$OutputDir = "$env:USERPROFILE\Desktop\M365_Audit_$TimeStamp"
+$OutputDir = "$env:USERPROFILE\Desktop\M365_Security_Audit_$TimeStamp"
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
-$Users = Get-MgUser -All
+Start-Transcript "$OutputDir\AuditLog.txt"
+
+Write-Host "Connecting to Microsoft Graph..."
+Connect-MgGraph -Scopes "User.Read.All","MailboxSettings.Read","Mail.Read","AuditLog.Read.All"
+
+Write-Host "Connecting to Exchange Online..."
+Connect-ExchangeOnline
+
+# =========================
+# VARIABLES
+# =========================
+
+$HighRiskFindings = @()
+$AllFindings = @()
+
+$Users = Get-MgUser -All -Filter "userType eq 'Member'" -Property Id,UserPrincipalName,DisplayName
+
+# =========================
+# MAILBOX RULE AUDIT
+# =========================
 
 foreach ($User in $Users) {
-    $UPN = $User.UserPrincipalName
-    try {
-        Get-MgUserMailFolderMessageRule -UserId $UPN -MailFolderId Inbox |
-        Select DisplayName,Actions,Conditions |
-        Out-File "$OutputDir\$($UPN)_InboxRules.txt"
-    } catch {}
+
+    Write-Progress -Activity "Auditing Mailboxes" -Status $User.UserPrincipalName
 
     try {
-        Get-MgUserMailboxSetting -UserId $UPN |
-        Select UserPurpose,ForwardingSmtpAddress |
-        Out-File "$OutputDir\$($UPN)_Forwarding.txt"
-    } catch {}
+        $Rules = Get-MgUserMailFolderMessageRule -UserId $User.Id -MailFolderId "Inbox"
+
+        foreach ($Rule in $Rules) {
+
+            $Risk = "Normal"
+
+            # Detect Forwarding
+            if ($Rule.Actions.ForwardTo -or $Rule.Actions.RedirectTo) {
+                $Risk = "HIGH - External Forwarding"
+            }
+
+            # Detect Auto Delete
+            if ($Rule.Actions.Delete -eq $true) {
+                $Risk = "HIGH - Auto Delete Rule"
+            }
+
+            # Detect Move to Junk/Deleted
+            if ($Rule.Actions.MoveToFolder -match "Deleted|Junk") {
+                $Risk = "Medium - Suspicious Folder Move"
+            }
+
+            $Finding = [PSCustomObject]@{
+                DisplayName = $User.DisplayName
+                UserPrincipalName = $User.UserPrincipalName
+                RuleName = $Rule.DisplayName
+                RiskLevel = $Risk
+            }
+
+            $AllFindings += $Finding
+
+            if ($Risk -like "HIGH*") {
+                $HighRiskFindings += $Finding
+            }
+        }
+    }
+    catch {
+        Write-Warning "Failed rule check for $($User.UserPrincipalName)"
+    }
+
+    # =========================
+    # FORWARDING SETTINGS
+    # =========================
+
+    try {
+        $Mailbox = Get-Mailbox $User.UserPrincipalName
+
+        if ($Mailbox.ForwardingSmtpAddress -or $Mailbox.ForwardingAddress) {
+
+            $Finding = [PSCustomObject]@{
+                DisplayName = $User.DisplayName
+                UserPrincipalName = $User.UserPrincipalName
+                RuleName = "Mailbox Forwarding Enabled"
+                RiskLevel = "HIGH - Mailbox Forwarding"
+            }
+
+            $HighRiskFindings += $Finding
+            $AllFindings += $Finding
+        }
+    }
+    catch {}
 }
-Write-Host "Audit Complete."
+
+# =========================
+# UNIFIED AUDIT LOG CHECK
+# =========================
+
+Write-Host "Checking Unified Audit Logs..."
+
+$StartDate = (Get-Date).AddDays(-7)
+$AuditLogs = Search-UnifiedAuditLog -StartDate $StartDate -EndDate (Get-Date) `
+    -Operations "New-InboxRule","Set-Mailbox","Add-MailboxPermission","SendAs"
+
+$AuditLogs | Export-Csv "$OutputDir\AuditLogEvents.csv" -NoTypeInformation
+
+# =========================
+# EXPORT REPORTS
+# =========================
+
+$AllFindings | Export-Csv "$OutputDir\AllFindings.csv" -NoTypeInformation
+$HighRiskFindings | Export-Csv "$OutputDir\HighRiskFindings.csv" -NoTypeInformation
+
+# =========================
+# HTML REPORT
+# =========================
+
+$HtmlReport = @"
+&lt;html&gt;
+&lt;head&gt;
+&lt;title&gt;M365 Security Audit&lt;/title&gt;
+&lt;style&gt;
+body {font-family: Arial;}
+table {border-collapse: collapse;}
+th, td {border: 1px solid black; padding: 5px;}
+th {background-color: #f2f2f2;}
+.high {background-color: #ffcccc;}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h2&gt;Microsoft 365 Security Audit Report&lt;/h2&gt;
+&lt;p&gt;Date: $(Get-Date)&lt;/p&gt;
+&lt;p&gt;Total High Risk Findings: $($HighRiskFindings.Count)&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"@
+
+$HtmlReport | Out-File "$OutputDir\AuditReport.html"
+
+# =========================
+# TEAMS ALERT
+# =========================
+
+if ($HighRiskFindings.Count -gt 0) {
+
+    $Message = @{
+        text = "🚨 M365 Security Alert: $($HighRiskFindings.Count) high-risk findings detected."
+    }
+
+    Invoke-RestMethod -Method Post -Uri $TeamsWebhookUrl -Body ($Message | ConvertTo-Json) -ContentType 'application/json'
+}
+
+# =========================
+# EMAIL ALERT (OPTIONAL)
+# =========================
+
+if ($SendEmailAlert -and $HighRiskFindings.Count -gt 0) {
+    Send-MailMessage -To $AlertEmailTo -From $AlertEmailFrom `
+        -Subject "M365 Security Alert" `
+        -Body "High-risk findings detected. See attached report." `
+        -SmtpServer $SMTPServer `
+        -Attachments "$OutputDir\HighRiskFindings.csv"
+}
+
+Stop-Transcript
+
+Write-Host "Enterprise Security Audit Complete."
 </pre>
 <button onclick="copyToClipboard('script1')">Copy Script</button>
 <button class="download-btn" onclick="downloadScript('script1', 'M365_Mailbox_Audit.ps1')">Download Script</button>
@@ -349,23 +513,262 @@ pause</pre>
 <section>
 <h2>🔵 Phase 5 – Endpoint Hardening</h2>
 <h3>Run Command:</h3>
-<pre id="cmd7">Set-ExecutionPolicy RemoteSigned -Scope Process
-C:\Scripts\Endpoint_Hardening.ps1</pre>
+<pre id="cmd7">PowerShell -ExecutionPolicy Bypass -File "C:\Scripts\EndpointHardening.ps1"</pre>
 <button onclick="copyToClipboard('cmd7')">Copy Command</button>
 
-<h3>Save Script As: C:\Scripts\Endpoint_Hardening.ps1</h3>
+<h3>Save Script As: C:\Scripts\EndpointHardening.ps1</h3>
 <pre id="script4">
-# Endpoint Hardening Script
-# Created by Umer Malik
-New-Item -Path "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Force | Out-Null
-Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Name "Enabled" -Value 0
-New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force | Out-Null
-Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 1
-Add-MpPreference -AttackSurfaceReductionRules_Ids "D4F940AB-401B-4EFC-AADC-AD5F3C50688A" -AttackSurfaceReductionRules_Actions Enabled
-Write-Host "Hardening Applied."
+&lt;#
+.SYNOPSIS
+Endpoint Hardening with True Rollback and Compliance Reporting
+Author: Umer Malik
+#&gt;
+
+# -------------------------------
+# Check for Administrator
+# -------------------------------
+If (-NOT ([Security.Principal.WindowsPrincipal] `
+    [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+    [Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host "Run this script as Administrator." -ForegroundColor Red
+    Exit 1
+}
+
+$BackupFile = "C:\Scripts\EndpointHardening_Backup.json"
+$Results = @()
+
+function Add-Result {
+    param ($Control, $Status)
+    $Results += [PSCustomObject]@{
+        Control = $Control
+        Status  = $Status
+    }
+}
+
+# -------------------------------
+# Function to Save Current State
+# -------------------------------
+function Backup-CurrentState {
+    $State = @{}
+
+    # Windows Script Host
+    $wsh = Get-ItemProperty "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Name Enabled -ErrorAction SilentlyContinue
+    $State.WSH_Enabled = if ($wsh) { $wsh.Enabled } else { 1 }
+
+    # PowerShell ScriptBlock Logging
+    $pslog = Get-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name EnableScriptBlockLogging -ErrorAction SilentlyContinue
+    $State.PS_ScriptBlockLogging = if ($pslog) { $pslog.EnableScriptBlockLogging } else { 0 }
+
+    # Defender
+    try { $def = Get-MpPreference } catch { $def = $null }
+    $State.Defender = @{
+        DisableRealtimeMonitoring = if ($def) { $def.DisableRealtimeMonitoring } else { $null }
+        EnableNetworkProtection = if ($def) { $def.EnableNetworkProtection } else { $null }
+        EnableControlledFolderAccess = if ($def) { $def.EnableControlledFolderAccess } else { $null }
+    }
+
+    # Firewall
+    $fw = Get-NetFirewallProfile
+    $State.Firewall = @{}
+    foreach ($p in $fw) { $State.Firewall[$p.Name] = $p.Enabled }
+
+    # SMBv1
+    $State.SMBv1 = (Get-SmbServerConfiguration).EnableSMB1Protocol
+
+    # NTLMv2
+    $ntlm = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name LmCompatibilityLevel -ErrorAction SilentlyContinue
+    $State.NTLMv2 = if ($ntlm) { $ntlm.LmCompatibilityLevel } else { 0 }
+
+    # LLMNR
+    $llmnr = Get-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient" -Name EnableMulticast -ErrorAction SilentlyContinue
+    $State.LLMNR = if ($llmnr) { $llmnr.EnableMulticast } else { 1 }
+
+    # Guest
+    $guest = Get-LocalUser -Name Guest -ErrorAction SilentlyContinue
+    $State.GuestEnabled = if ($guest) { $guest.Enabled } else { $null }
+
+    # Remote Registry
+    $rr = Get-Service RemoteRegistry -ErrorAction SilentlyContinue
+    $State.RemoteRegistry = if ($rr) { $rr.Status } else { "Stopped" }
+
+    # Save JSON
+    $State | ConvertTo-Json -Depth 5 | Set-Content $BackupFile
+    Write-Host "Backup of current state saved to $BackupFile" -ForegroundColor Cyan
+}
+
+# -------------------------------
+# Function to Apply Hardening
+# -------------------------------
+function Apply-Hardening {
+
+    Write-Host "`nApplying Endpoint Hardening..." -ForegroundColor Cyan
+
+    # Backup current state first
+    Backup-CurrentState
+
+    # 1. Disable Windows Script Host
+    New-Item -Path "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Force | Out-Null
+    Set-ItemProperty "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Name Enabled -Value 0 -Type DWord
+    Add-Result "Windows Script Host Disabled" ((Get-ItemProperty "HKLM:\Software\Microsoft\Windows Script Host\Settings").Enabled -eq 0)
+
+    # 2. PowerShell Script Logging
+    New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force | Out-Null
+    Set-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name EnableScriptBlockLogging -Value 1 -Type DWord
+    Add-Result "PowerShell ScriptBlock Logging Enabled" ((Get-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging").EnableScriptBlockLogging -eq 1)
+
+    # 3. Defender Hardening
+    try { Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction Stop } catch {}
+    try { Set-MpPreference -EnableNetworkProtection Enabled -ErrorAction Stop } catch {}
+    try { Set-MpPreference -EnableControlledFolderAccess Enabled -ErrorAction Stop } catch {}
+    try { $def = Get-MpPreference } catch { $def = $null }
+    Add-Result "Defender RealTime Protection" ($def -and $def.DisableRealtimeMonitoring -eq $false)
+    Add-Result "Defender Network Protection" ($def -and $def.EnableNetworkProtection -eq 1)
+    Add-Result "Controlled Folder Access" ($def -and $def.EnableControlledFolderAccess -eq 1)
+
+    # 4. Firewall
+    Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
+    $fw = (Get-NetFirewallProfile | Where {$_.Enabled -eq "True"}).Count
+    Add-Result "Firewall Enabled (All Profiles)" ($fw -eq 3)
+
+    # 5. SMBv1 Disabled
+    Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force
+    Add-Result "SMBv1 Disabled" ((Get-SmbServerConfiguration).EnableSMB1Protocol -eq $false)
+
+    # 6. NTLMv2 Only
+    New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Force | Out-Null
+    Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name LmCompatibilityLevel -Value 5 -Type DWord
+    Add-Result "NTLMv2 Enforced" ((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa").LmCompatibilityLevel -eq 5)
+
+    # 7. LLMNR Disabled
+    New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient" -Force | Out-Null
+    Set-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient" -Name EnableMulticast -Value 0 -Type DWord
+    Add-Result "LLMNR Disabled" ((Get-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient").EnableMulticast -eq 0)
+
+    # 8. Guest Disabled
+    if (Get-LocalUser -Name "Guest" -ErrorAction SilentlyContinue) {
+        Disable-LocalUser -Name "Guest"
+    }
+    Add-Result "Guest Account Disabled" ((Get-LocalUser Guest).Enabled -eq $false)
+
+    # 9. Remote Registry Disabled
+    if (Get-Service -Name "RemoteRegistry" -ErrorAction SilentlyContinue) {
+        Stop-Service -Name "RemoteRegistry" -Force
+        Set-Service -Name "RemoteRegistry" -StartupType Disabled
+    }
+    Add-Result "Remote Registry Disabled" ((Get-Service RemoteRegistry).Status -eq "Stopped")
+
+    # -------------------------------
+    # Report
+    # -------------------------------
+    Write-Host "`n====== Hardening Results ======" -ForegroundColor Yellow
+    $Results | Format-Table -AutoSize
+    $Failed = $Results | Where { $_.Status -eq $false }
+    if ($Failed.Count -eq 0) {
+        Write-Host "`n✅ All controls successfully applied." -ForegroundColor Green
+    } else {
+        Write-Host "`n⚠ Some controls failed:" -ForegroundColor Red
+        $Failed | Format-Table -AutoSize
+    }
+}
+
+# -------------------------------
+# Function to Rollback
+# -------------------------------
+function Rollback-Hardening {
+    if (-Not (Test-Path $BackupFile)) {
+        Write-Host "Backup file not found. Cannot rollback." -ForegroundColor Red
+        return
+    }
+
+    Write-Host "`nRolling back Endpoint Hardening..." -ForegroundColor Cyan
+    $State = Get-Content $BackupFile | ConvertFrom-Json
+
+    # 1. Windows Script Host
+    Set-ItemProperty "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Name Enabled -Value $State.WSH_Enabled -Type DWord
+    Add-Result "Windows Script Host Restored" ((Get-ItemProperty "HKLM:\Software\Microsoft\Windows Script Host\Settings").Enabled -eq $State.WSH_Enabled)
+
+    # 2. PowerShell ScriptBlock Logging
+    Set-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name EnableScriptBlockLogging -Value $State.PS_ScriptBlockLogging -Type DWord
+    Add-Result "PowerShell ScriptBlock Logging Restored" ((Get-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging").EnableScriptBlockLogging -eq $State.PS_ScriptBlockLogging)
+
+    # 3. Defender
+    try { Set-MpPreference -DisableRealtimeMonitoring $State.Defender.DisableRealtimeMonitoring -ErrorAction SilentlyContinue } catch {}
+    try { Set-MpPreference -EnableNetworkProtection $State.Defender.EnableNetworkProtection -ErrorAction SilentlyContinue } catch {}
+    try { Set-MpPreference -EnableControlledFolderAccess $State.Defender.EnableControlledFolderAccess -ErrorAction SilentlyContinue } catch {}
+
+    $def = Get-MpPreference
+    Add-Result "Defender RealTime Restored" ($def.DisableRealtimeMonitoring -eq $State.Defender.DisableRealtimeMonitoring)
+    Add-Result "Defender Network Protection Restored" ($def.EnableNetworkProtection -eq $State.Defender.EnableNetworkProtection)
+    Add-Result "Controlled Folder Access Restored" ($def.EnableControlledFolderAccess -eq $State.Defender.EnableControlledFolderAccess)
+
+    # 4. Firewall
+    foreach ($name in $State.Firewall.Keys) {
+        Set-NetFirewallProfile -Profile $name -Enabled $State.Firewall[$name]
+    }
+    $fw = (Get-NetFirewallProfile | Where {$_.Enabled -eq $true}).Count
+    Add-Result "Firewall Restored" ($fw -eq ($State.Firewall.Keys | Measure-Object).Count)
+
+    # 5. SMBv1
+    Set-SmbServerConfiguration -EnableSMB1Protocol $State.SMBv1 -Force
+    Add-Result "SMBv1 Restored" ((Get-SmbServerConfiguration).EnableSMB1Protocol -eq $State.SMBv1)
+
+    # 6. NTLMv2
+    Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name LmCompatibilityLevel -Value $State.NTLMv2 -Type DWord
+    Add-Result "NTLMv2 Restored" ((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa").LmCompatibilityLevel -eq $State.NTLMv2)
+
+    # 7. LLMNR
+    Set-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient" -Name EnableMulticast -Value $State.LLMNR -Type DWord
+    Add-Result "LLMNR Restored" ((Get-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient").EnableMulticast -eq $State.LLMNR)
+
+    # 8. Guest
+    if ($State.GuestEnabled -eq $true) {
+        Enable-LocalUser -Name Guest
+    } else {
+        Disable-LocalUser -Name Guest
+    }
+    Add-Result "Guest Account Restored" ((Get-LocalUser Guest).Enabled -eq $State.GuestEnabled)
+
+    # 9. Remote Registry
+    if ($State.RemoteRegistry -eq "Running") {
+        Set-Service -Name RemoteRegistry -StartupType Automatic
+        Start-Service RemoteRegistry
+    } else {
+        Stop-Service RemoteRegistry -Force
+        Set-Service -Name RemoteRegistry -StartupType Disabled
+    }
+    $rr = (Get-Service RemoteRegistry).Status
+    Add-Result "Remote Registry Restored" ($rr -eq $State.RemoteRegistry)
+
+    # -------------------------------
+    # Report
+    # -------------------------------
+    Write-Host "`n====== Rollback Results ======" -ForegroundColor Yellow
+    $Results | Format-Table -AutoSize
+    $Failed = $Results | Where { $_.Status -eq $false }
+    if ($Failed.Count -eq 0) {
+        Write-Host "`n✅ Rollback completed successfully." -ForegroundColor Green
+    } else {
+        Write-Host "`n⚠ Some controls failed to restore:" -ForegroundColor Red
+        $Failed | Format-Table -AutoSize
+    }
+}
+
+# -------------------------------
+# Menu
+# -------------------------------
+Write-Host "`nEndpoint Hardening Script"
+Write-Host "1) Apply Hardening"
+Write-Host "2) Rollback Hardening"
+$choice = Read-Host "Enter your choice (1 or 2)"
+
+switch ($choice) {
+    "1" { Apply-Hardening }
+    "2" { Rollback-Hardening }
+    default { Write-Host "Invalid choice. Exiting." -ForegroundColor Red }
+}
 </pre>
 <button onclick="copyToClipboard('script4')">Copy Script</button>
-<button class="download-btn" onclick="downloadScript('script4', 'Endpoint_Hardening.ps1')">Download Script</button>
+<button class="download-btn" onclick="downloadScript('script4', 'EndpointHardening.ps1')">Download Script</button>
 </section>
 
 <section>
@@ -376,7 +779,7 @@ Write-Host "Hardening Applied."
         <li><strong>Error: "Access Denied" or "UnauthorizedAccessException"</strong>
             <br><em>Fix:</em> Ensure you are running PowerShell as <strong>Administrator</strong>.</li>
         <li><strong>Error: "The term 'Connect-MgGraph' is not recognized"</strong>
-            <br><em>Fix:</em> Run Phase 1, Step 1 (Install Microsoft Graph Module) first.</li>
+            <br><em>Fix:</em> Run Phase 1, Step 1 (Install Required Modules) first.</li>
     </ul>
 </section>
 
