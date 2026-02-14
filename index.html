@@ -128,24 +128,23 @@ Security Solution by Umer Malik
 <section>
     <h2>Getting Started & Instructions</h2>
     <p>This page contains <strong>5 specialized security scripts</strong> designed for incident response, forensic collection, and endpoint hardening.</p>
-    <p><strong>Purpose:</strong> To provide a centralized toolkit for IT administrators to contain M365 threats, collect forensic data, and sanitize environments.</p>
     
-    <h3>How to Save These Scripts:</h3>
+    <h3>1. Accessing PowerShell as Administrator</h3>
+    <p>To run these scripts, you must open PowerShell with elevated privileges. You can do this in two ways:</p>
+    <ul class="intro-list">
+        <li><strong>Method A (Shortcut):</strong> Press <strong>Windows Key + X</strong> on your keyboard and select <strong>Windows PowerShell (Admin)</strong> or <strong>Terminal (Admin)</strong>.</li>
+        <li><strong>Method B (Search):</strong> Press the <strong>Windows Key</strong>, type "PowerShell", right-click on it, and select <strong>Run as Administrator</strong>.</li>
+    </ul>
+
+    <h3>2. Saving the Scripts (Critical Step)</h3>
+    <p class="warning">IMPORTANT: You must save all scripts inside a folder named "Scripts" directly under the C: drive (Path: <code>C:\Scripts</code>).</p>
+    <p>The execution commands provided in this guide are hardcoded to look for files in <code>C:\Scripts\</code>. If saved elsewhere, the commands will fail unless you manually edit the file paths.</p>
+    
     <ol class="intro-list">
-        <li><strong>Create Directory:</strong> Navigate to your <strong>C: Drive</strong> and create a folder named <strong>Scripts</strong> (Path: <code>C:\Scripts</code>).</li>
-        <li><strong>Using Notepad:</strong> 
-            <ul>
-                <li>Click <strong>"Copy Script"</strong> on any section below.</li>
-                <li>Paste (Ctrl+V) into <strong>Notepad</strong>.</li>
-            </ul>
-        </li>
-        <li><strong>Saving:</strong>
-            <ul>
-                <li>In Notepad, go to <strong>File > Save As</strong>.</li>
-                <li>Set "Save as type" to <strong>All Files (*.*)</strong>.</li>
-                <li>Save to <code>C:\Scripts</code> with the filename provided in the header.</li>
-            </ul>
-        </li>
+        <li><strong>Create Directory:</strong> Open File Explorer, navigate to your <strong>C: Drive</strong>, and create a folder named <strong>Scripts</strong>.</li>
+        <li><strong>Copying:</strong> Click <strong>"Copy Script"</strong> on any section below and paste (Ctrl+V) into <strong>Notepad</strong>.</li>
+        <li><strong>Saving:</strong> In Notepad, go to <strong>File > Save As</strong>. Set "Save as type" to <strong>All Files (*.*)</strong> and save to <code>C:\Scripts</code> with the filename provided.</li>
+        <li><strong>Downloading:</strong> Use the <strong>"Download Script"</strong> button to save the file directly with the correct extension to your <code>C:\Scripts</code> folder.</li>
     </ol>
 </section>
 
