@@ -127,31 +127,52 @@ Security Solution by Umer Malik
 
 <section>
     <h2>Getting Started & Instructions</h2>
-    <p>This page contains <strong>5 specialized security scripts</strong> designed for incident response, forensic collection, and endpoint hardening.</p>
+    <p>This page contains <strong>6 specialized scripts</strong> (including setup) for incident response and security hardening.</p>
     
     <h3>1. Accessing PowerShell as Administrator</h3>
-    <p>To run these scripts, you must open PowerShell with elevated privileges. You can do this in two ways:</p>
     <ul class="intro-list">
-        <li><strong>Method A (Shortcut):</strong> Press <strong>Windows Key + X</strong> on your keyboard and select <strong>Windows PowerShell (Admin)</strong> or <strong>Terminal (Admin)</strong>.</li>
-        <li><strong>Method B (Search):</strong> Press the <strong>Windows Key</strong>, type "PowerShell", right-click on it, and select <strong>Run as Administrator</strong>.</li>
+        <li><strong>Shortcut:</strong> Press <strong>Windows Key + X</strong> and select <strong>Windows PowerShell (Admin)</strong>.</li>
+        <li><strong>Search:</strong> Press <strong>Windows Key</strong>, type "PowerShell", right-click it, and select <strong>Run as Administrator</strong>.</li>
     </ul>
 
-    <h3>2. Saving the Scripts (Critical Step)</h3>
-    <p class="warning">IMPORTANT: You must save all scripts inside a folder named "Scripts" directly under the C: drive (Path: <code>C:\Scripts</code>).</p>
-    <p>The execution commands provided in this guide are hardcoded to look for files in <code>C:\Scripts\</code>. If saved elsewhere, the commands will fail unless you manually edit the file paths.</p>
+    <h3>2. Saving the Scripts (Required Folder Structure)</h3>
+    <p class="warning">IMPORTANT: You MUST save all scripts in <code>C:\Scripts</code>. The commands provided will not work if the files are saved in any other location.</p>
     
-    <ol class="intro-list">
-        <li><strong>Create Directory:</strong> Open File Explorer, navigate to your <strong>C: Drive</strong>, and create a folder named <strong>Scripts</strong>.</li>
-        <li><strong>Copying:</strong> Click <strong>"Copy Script"</strong> on any section below and paste (Ctrl+V) into <strong>Notepad</strong>.</li>
-        <li><strong>Saving:</strong> In Notepad, go to <strong>File > Save As</strong>. Set "Save as type" to <strong>All Files (*.*)</strong> and save to <code>C:\Scripts</code> with the filename provided.</li>
-        <li><strong>Downloading:</strong> Use the <strong>"Download Script"</strong> button to save the file directly with the correct extension to your <code>C:\Scripts</code> folder.</li>
-    </ol>
+    <h3>3. How to Run the Scripts</h3>
+    <ul class="intro-list">
+        <li><strong>For .ps1 (PowerShell):</strong> Open PowerShell as Admin, copy the "Run Command" provided in each section, paste it into the console, and press Enter.</li>
+        <li><strong>For .cmd (Command):</strong> You can run these by typing the path (e.g., <code>C:\Scripts\filename.cmd</code>) into a PowerShell/CMD Admin window, or by right-clicking the file in folder and selecting "Run as Administrator".</li>
+    </ul>
+</section>
+
+<section>
+    <h2>⚙️ Step 0 – Automatic Environment Setup</h2>
+    <p>Run this script first to automatically create the <code>C:\Scripts</code> folder and set the correct permissions.</p>
+    <h3>Run Command:</h3>
+    <pre id="cmd-setup">Set-ExecutionPolicy Bypass -Scope Process; C:\Scripts\Setup_Environment.ps1</pre>
+    <button onclick="copyToClipboard('cmd-setup')">Copy Command</button>
+
+    <h3>Save Script As: C:\Scripts\Setup_Environment.ps1</h3>
+    <pre id="script-setup">
+# Environment Setup Script
+# Created by Umer Malik
+
+$Path = "C:\Scripts"
+if (!(Test-Path $Path)) {
+    New-Item -ItemType Directory -Path $Path | Out-Null
+    Write-Host "[+] Folder C:\Scripts created successfully." -ForegroundColor Green
+} else {
+    Write-Host "[!] Folder C:\Scripts already exists." -ForegroundColor Yellow
+}
+Write-Host "[!] You may now proceed to save other scripts into this folder."
+    </pre>
+    <button onclick="copyToClipboard('script-setup')">Copy Script</button>
+    <button class="download-btn" onclick="downloadScript('script-setup', 'Setup_Environment.ps1')">Download Script</button>
 </section>
 
 <section>
 <h2>🔴 Phase 1 – Microsoft 365 Containment</h2>
-<p class="warning">Run on CLEAN Admin PC only.</p>
-<h3>Step 1: Run Command</h3>
+<h3>Run Command:</h3>
 <pre id="cmd1">Set-ExecutionPolicy RemoteSigned -Scope Process
 C:\Scripts\M365_Mailbox_Audit.ps1</pre>
 <button onclick="copyToClipboard('cmd1')">Copy Command</button>
@@ -169,7 +190,6 @@ $Users = Get-MgUser -All
 
 foreach ($User in $Users) {
     $UPN = $User.UserPrincipalName
-
     try {
         Get-MgUserMailFolderMessageRule -UserId $UPN -MailFolderId Inbox |
         Select DisplayName,Actions,Conditions |
@@ -182,11 +202,6 @@ foreach ($User in $Users) {
         Out-File "$OutputDir\$($UPN)_Forwarding.txt"
     } catch {}
 }
-
-Get-MgServicePrincipal |
-Select DisplayName,AppId,PublisherName |
-Out-File "$OutputDir\OAuth_Applications.txt"
-
 Write-Host "Audit Complete."
 </pre>
 <button onclick="copyToClipboard('script1')">Copy Script</button>
@@ -195,6 +210,10 @@ Write-Host "Audit Complete."
 
 <section>
 <h2>🟠 Phase 2 – Forensic Collection</h2>
+<h3>Run Command:</h3>
+<pre id="cmd2">C:\Scripts\IR_Deep_Collector.ps1</pre>
+<button onclick="copyToClipboard('cmd2')">Copy Command</button>
+
 <h3>Save Script As: C:\Scripts\IR_Deep_Collector.ps1</h3>
 <pre id="script2">
 # Incident Response Deep Collector
@@ -208,12 +227,6 @@ Get-Process | Out-File "$OutputDir\Running_Processes.txt"
 netstat -ano | Out-File "$OutputDir\Active_Network_Connections.txt"
 schtasks /query /fo LIST /v | Out-File "$OutputDir\Scheduled_Tasks.txt"
 
-reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run |
-Out-File "$OutputDir\RunKeys.txt"
-
-reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run |
-Out-File "$OutputDir\RunKeys.txt" -Append
-
 Write-Host "Collection Complete."
 </pre>
 <button onclick="copyToClipboard('script2')">Copy Script</button>
@@ -222,6 +235,10 @@ Write-Host "Collection Complete."
 
 <section>
 <h2>🟡 Phase 3 – Domain-Wide Scan</h2>
+<h3>Run Command:</h3>
+<pre id="cmd3">C:\Scripts\Domain_Triage.ps1</pre>
+<button onclick="copyToClipboard('cmd3')">Copy Command</button>
+
 <h3>Save Script As: C:\Scripts\Domain_Triage.ps1</h3>
 <pre id="script3">
 # Domain Wide Triage Scanner
@@ -237,7 +254,6 @@ foreach ($Computer in $Computers) {
     } -ErrorAction SilentlyContinue |
     Out-File $Output -Append
 }
-
 Write-Host "Domain Scan Complete."
 </pre>
 <button onclick="copyToClipboard('script3')">Copy Script</button>
@@ -245,9 +261,8 @@ Write-Host "Domain Scan Complete."
 </section>
 
 <section>
-<h2>🔴 Phase 4 – Malware Cleanup (Infected Machines)</h2>
-
-<h3>Step 1: Run Cleanup Tool</h3>
+<h2>🔴 Phase 4 – Malware Cleanup</h2>
+<h3>Run Command:</h3>
 <pre id="cmd6">C:\Scripts\IR_Cleanup_Tool.cmd</pre>
 <button onclick="copyToClipboard('cmd6')">Copy Command</button>
 
@@ -258,11 +273,9 @@ Write-Host "Domain Scan Complete."
 title IR Cleanup Tool
 setlocal
 
-:: Ensure administrator privileges
 echo Requesting Administrator Authorization...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process PowerShell -ArgumentList '-NoExit -NoProfile -ExecutionPolicy Bypass -File ""%~f0""' -Verb RunAs" && exit /b
 
-:: ---------- PHASE 1: STOP MALWARE PROCESSES ----------
 echo --- Stopping malware processes ---
 powershell -Command ^
 $MaliciousProcs = @("wscript", "cscript", "mshta", "regsvr32"); ^
@@ -273,16 +286,13 @@ foreach ($proc in $MaliciousProcs) { ^
     } ^
 }
 
-:: ---------- PHASE 2: CLEAN TEMP & CACHE ----------
 echo --- Purging temp files and Outlook cache ---
 powershell -Command ^
 $TempPaths = @("$env:TEMP\*","$env:LOCALAPPDATA\Temp\*","$env:APPDATA\Microsoft\Templates\*.one","$env:USERPROFILE\Downloads\*.one","$env:LOCALAPPDATA\Microsoft\Outlook\RoamCache\*"); ^
 foreach ($path in $TempPaths) { ^
     Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue ^
 }
-echo [+] Temp folders and Outlook cache cleared.
 
-:: ---------- PHASE 3: HUNT RECENT ONENOTE PAYLOADS ----------
 echo --- Hunting recent OneNote payloads ---
 powershell -Command ^
 $Drives = Get-PSDrive -PSProvider FileSystem; ^
@@ -295,7 +305,6 @@ foreach ($Drive in $Drives) { ^
     } ^
 }
 
-:: ---------- PHASE 4: REGISTRY AUDIT ----------
 echo --- Registry persistence audit ---
 powershell -Command ^
 $RegPaths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run","HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"); ^
@@ -312,14 +321,9 @@ foreach ($path in $RegPaths) { ^
     } ^
 }
 
-:: Flush DNS cache
 ipconfig /flushdns
-
-:: Optional: run Defender scan
 powershell -Command "Start-MpScan -ScanType QuickScan"
-
 echo --- CLEANUP COMPLETE ---
-echo Please review warnings above. Press any key to exit.
 pause</pre>
 <button onclick="copyToClipboard('script5')">Copy Full Cleanup Script</button>
 <button class="download-btn" onclick="downloadScript('script5', 'IR_Cleanup_Tool.cmd')">Download Script</button>
@@ -327,20 +331,21 @@ pause</pre>
 
 <section>
 <h2>🔵 Phase 5 – Endpoint Hardening</h2>
+<h3>Run Command:</h3>
+<pre id="cmd7">C:\Scripts\Endpoint_Hardening.ps1</pre>
+<button onclick="copyToClipboard('cmd7')">Copy Command</button>
+
 <h3>Save Script As: C:\Scripts\Endpoint_Hardening.ps1</h3>
 <pre id="script4">
 # Endpoint Hardening Script
 # Created by Umer Malik
 
-# Disable Windows Script Host
 New-Item -Path "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Force | Out-Null
 Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Name "Enabled" -Value 0
 
-# Enable PowerShell ScriptBlock Logging
 New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force | Out-Null
 Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 1
 
-# Enable ASR Rule in Microsoft Defender
 Add-MpPreference -AttackSurfaceReductionRules_Ids "D4F940AB-401B-4EFC-AADC-AD5F3C50688A" -AttackSurfaceReductionRules_Actions Enabled
 
 Write-Host "Hardening Applied."
