@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Security Solution by Umer Malik</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background-color: #0f172a;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 0;
+}
+
+header {
+    background: #111827;
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #22d3ee;
+}
+
+section {
+    padding: 20px;
+    margin: 20px;
+    background: #1e293b;
+    border-radius: 8px;
+}
+
+h2 {
+    border-bottom: 2px solid #22d3ee;
+    padding-bottom: 5px;
+}
+
+code, pre {
+    background: #0f172a;
+    padding: 10px;
+    display: block;
+    overflow-x: auto;
+    border-radius: 5px;
+    color: #22d3ee;
+}
+
+button {
+    background: #22d3ee;
+    border: none;
+    padding: 6px 10px;
+    margin-top: 5px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #06b6d4;
+}
+
+.warning {
+    color: #f87171;
+    font-weight: bold;
+}
+
+.note {
+    color: #facc15;
+    font-weight: bold;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #111827;
+    color: #94a3b8;
+}
+</style>
+
+<script>
+function copyToClipboard(id) {
+    var copyText = document.getElementById(id);
+    navigator.clipboard.writeText(copyText.innerText);
+    alert("Copied to clipboard");
+}
+</script>
+
+</head>
+<body>
+
+<header>
+Security Solution by Umer Malik
+</header>
+
+<section>
+<h2>🔴 Phase 1 – Microsoft 365 Containment (Run on CLEAN Admin PC)</h2>
+
+<p class="warning">DO NOT run this from an infected machine.</p>
+
+<p class="note">Step 0: Create Folder <code>C:\scripts</code> and save all scripts there.</p>
+
+<h3>Step 1: Install Microsoft Graph Module</h3>
+<pre id="cmd1">Install-Module Microsoft.Graph -Scope CurrentUser</pre>
+<button onclick="copyToClipboard('cmd1')">Copy Command</button>
+
+<h3>Step 2: Connect to Microsoft 365</h3>
+<pre id="cmd2">Connect-MgGraph -Scopes "User.Read.All","Mail.Read","MailboxSettings.Read","AuditLog.Read.All","Directory.Read.All"</pre>
+<button onclick="copyToClipboard('cmd2')">Copy Command</button>
+
+<h3>Step 3: Run Mailbox Audit Script</h3>
+<pre id="cmd3">Set-ExecutionPolicy RemoteSigned -Scope Process
+C:\scripts\M365_Mailbox_Audit.ps1</pre>
+<button onclick="copyToClipboard('cmd3')">Copy Command</button>
+
+<h3>Save Script As: C:\scripts\M365_Mailbox_Audit.ps1</h3>
+<pre id="script1">
+# Microsoft 365 Mailbox Security Audit
+# Created by Umer Malik
+
+$TimeStamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$OutputDir = "$env:USERPROFILE\Desktop\M365_Audit_$TimeStamp"
+New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+
+$Users = Get-MgUser -All
+
+foreach ($User in $Users) {
+    $UPN = $User.UserPrincipalName
+
+    try {
+        Get-MgUserMailFolderMessageRule -UserId $UPN -MailFolderId Inbox |
+        Select DisplayName,Actions,Conditions |
+        Out-File "$OutputDir\$($UPN)_InboxRules.txt"
+    } catch {}
+
+    try {
+        Get-MgUserMailboxSetting -UserId $UPN |
+        Select UserPurpose,ForwardingSmtpAddress |
+        Out-File "$OutputDir\$($UPN)_Forwarding.txt"
+    } catch {}
+}
+
+Get-MgServicePrincipal |
+Select DisplayName,AppId,PublisherName |
+Out-File "$OutputDir\OAuth_Applications.txt"
+
+Write-Host "Audit Complete."
+</pre>
+<button onclick="copyToClipboard('script1')">Copy Script</button>
+
+</section>
+
+<section>
+<h2>🟠 Phase 2 – Forensic Collection on Infected Machines</h2>
+
+<h3>Step 1: Run Commands</h3>
+<pre id="cmd4">Set-ExecutionPolicy RemoteSigned -Scope Process
+C:\scripts\IR_Deep_Collector.ps1</pre>
+<button onclick="copyToClipboard('cmd4')">Copy Command</button>
+
+<h3>Save Script As: C:\scripts\IR_Deep_Collector.ps1</h3>
+<pre id="script2">
+# Incident Response Deep Collector
+# Created by Umer Malik
+
+$TimeStamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$OutputDir = "$env:USERPROFILE\Desktop\IR_Collection_$TimeStamp"
+New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+
+Get-Process | Out-File "$OutputDir\Running_Processes.txt"
+netstat -ano | Out-File "$OutputDir\Active_Network_Connections.txt"
+schtasks /query /fo LIST /v | Out-File "$OutputDir\Scheduled_Tasks.txt"
+
+reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run |
+Out-File "$OutputDir\RunKeys.txt"
+
+reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run |
+Out-File "$OutputDir\RunKeys.txt" -Append
+
+Write-Host "Collection Complete."
+</pre>
+<button onclick="copyToClipboard('script2')">Copy Script</button>
+
+</section>
+
+<section>
+<h2>🟡 Phase 3 – Domain-Wide Scan (Run on Domain Controller)</h2>
+
+<h3>Step 1: Run Command</h3>
+<pre id="cmd5">Set-ExecutionPolicy RemoteSigned -Scope Process
+C:\scripts\Domain_Triage.ps1</pre>
+<button onclick="copyToClipboard('cmd5')">Copy Command</button>
+
+<h3>Save Script As: C:\scripts\Domain_Triage.ps1</h3>
+<pre id="script3">
+# Domain Wide Triage Scanner
+# Created by Umer Malik
+
+Import-Module ActiveDirectory
+$Computers = Get-ADComputer -Filter * | Select -ExpandProperty Name
+$Output = "$env:USERPROFILE\Desktop\Domain_Triage_Report.txt"
+
+foreach ($Computer in $Computers) {
+    Invoke-Command -ComputerName $Computer -ScriptBlock {
+        Get-Process wscript,cscript,mshta,regsvr32 -ErrorAction SilentlyContinue
+    } -ErrorAction SilentlyContinue |
+    Out-File $Output -Append
+}
+
+Write-Host "Domain Scan Complete."
+</pre>
+<button onclick="copyToClipboard('script3')">Copy Script</button>
+
+</section>
+
+<section>
+<h2>🔴 Phase 4 – Malware Cleanup (Run on Infected Machines)</h2>
+
+<h3>Step 1: Run Cleanup Tool</h3>
+<pre id="cmd6">C:\scripts\IR_Cleanup_Tool.cmd</pre>
+<button onclick="copyToClipboard('cmd6')">Copy Command</button>
+
+<h3>Step 2: Save Script</h3>
+<pre id="script5">
+:: IR_Cleanup_Tool.cmd
+:: Created by Umer Malik
+@echo off
+title IR Cleanup Tool
+setlocal
+
+:: Ensure administrator privileges
+echo Requesting Administrator Authorization...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process PowerShell -ArgumentList '-NoExit -NoProfile -ExecutionPolicy Bypass -File ""%~f0""' -Verb RunAs" && exit /b
+
+:: ---------- PHASE 1: STOP MALWARE PROCESSES ----------
+echo --- Stopping malware processes ---
+powershell -Command ^
+$MaliciousProcs = @("wscript", "cscript", "mshta", "regsvr32"); ^
+foreach ($proc in $MaliciousProcs) { ^
+    if (Get-Process $proc -ErrorAction SilentlyContinue) { ^
+        Write-Host "[!] Stopping active threat engine: $proc" -ForegroundColor Red; ^
+        Stop-Process -Name $proc -Force ^
+    } ^
+}
+
+:: ---------- PHASE 2: CLEAN TEMP & CACHE ----------
+echo --- Purging temp files and Outlook cache ---
+powershell -Command ^
+$TempPaths = @("$env:TEMP\*","$env:LOCALAPPDATA\Temp\*","$env:APPDATA\Microsoft\Templates\*.one","$env:USERPROFILE\Downloads\*.one","$env:LOCALAPPDATA\Microsoft\Outlook\RoamCache\*"); ^
+foreach ($path in $TempPaths) { ^
+    Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue ^
+}
+echo [+] Temp folders and Outlook cache cleared.
+
+:: ---------- PHASE 3: HUNT RECENT ONENOTE PAYLOADS ----------
+echo --- Hunting recent OneNote payloads ---
+powershell -Command ^
+$Drives = Get-PSDrive -PSProvider FileSystem; ^
+foreach ($Drive in $Drives) { ^
+    Get-ChildItem -Path "$($Drive.Root)*" -Include *.one -Recurse -ErrorAction SilentlyContinue | ^
+    Where-Object { $_.CreationTime -gt (Get-Date).AddDays(-14) } | ^
+    ForEach-Object { ^
+        Write-Host "[!] Found Suspicious OneNote: $($_.FullName)" -ForegroundColor Red; ^
+        Rename-Item -Path $_.FullName -NewName "$($_.Name).infected_bak" -ErrorAction SilentlyContinue ^
+    } ^
+}
+
+:: ---------- PHASE 4: REGISTRY AUDIT ----------
+echo --- Registry persistence audit ---
+powershell -Command ^
+$RegPaths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run","HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"); ^
+foreach ($path in $RegPaths) { ^
+    Get-ItemProperty -Path $path | Select-Object -Property * -Exclude PSPath, PSParentPath, PSChildName, PSDrive, PSProvider | ^
+    ForEach-Object { ^
+        $props = $_.psobject.properties; ^
+        foreach ($prop in $props) { ^
+            if ($prop.Value -match "AppData" -or $prop.Value -match "Temp") { ^
+                Write-Host "[!] WARNING: Suspicious Registry Key Found in $path" -ForegroundColor Yellow; ^
+                Write-Host "    $($prop.Name) -> $($prop.Value)" -ForegroundColor Yellow; ^
+            } ^
+        } ^
+    } ^
+}
+
+:: Flush DNS cache
+ipconfig /flushdns
+
+:: Optional: run Defender scan
+powershell -Command "Start-MpScan -ScanType QuickScan"
+
+echo --- CLEANUP COMPLETE ---
+echo Please review warnings above. Press any key to exit.
+pause
+</pre>
+<button onclick="copyToClipboard('script5')">Copy Full Cleanup Script</button>
+
+<h3>Notes / Optional Improvements</h3>
+<ul>
+<li>Add **logging**: append `>> C:\scripts\IR_Cleanup_Log.txt` to each removal or Stop-Process command for audit</li>
+<li>Enable **Defender Full Scan** instead of QuickScan if needed</li>
+<li>Optionally move suspicious files to `C:\scripts\Backup` before deletion</li>
+<li>Ensure you run this **after IR_Deep_Collector.ps1** to avoid losing forensic data</li>
+</ul>
+
+</section>
+
+<section>
+<h2>🔵 Phase 5 – Endpoint Hardening (Run AFTER Cleanup)</h2>
+
+<h3>Step 1: Run Hardening Script</h3>
+<pre id="cmd7">Set-ExecutionPolicy RemoteSigned -Scope Process
+C:\scripts\Endpoint_Hardening.ps1</pre>
+<button onclick="copyToClipboard('cmd7')">Copy Command</button>
+
+<h3>Save Script As: C:\scripts\Endpoint_Hardening.ps1</h3>
+<pre id="script4">
+# Endpoint Hardening Script
+# Created by Umer Malik
+
+# Disable Windows Script Host
+New-Item -Path "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Force | Out-Null
+Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows Script Host\Settings" -Name "Enabled" -Value 0
+
+# Enable PowerShell ScriptBlock Logging
+New-Item -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force | Out-Null
+Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 1
+
+# Enable ASR Rule in Microsoft Defender
+Add-MpPreference -AttackSurfaceReductionRules_Ids "D4F940AB-401B-4EFC-AADC-AD5F3C50688A" -AttackSurfaceReductionRules_Actions Enabled
+
+Write-Host "Hardening Applied."
+</pre>
+<button onclick="copyToClipboard('script4')">Copy Script</button>
+
+</section>
+
+<footer>
+Crafted through research by Umer Malik
+</footer>
+
+</body>
+</html>
